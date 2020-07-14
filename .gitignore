@@ -1,0 +1,19 @@
+# package directories
+node_modules
+jspm_packages
+
+# Serverless directories
+.serverless
+
+# IDE
+/.vscode
+.idea/
+
+# export files
+docs/dist/*.json
+
+# jest coverage files
+/coverage/
+
+# exclude zip files
+*.zip

@@ -1,0 +1,1861 @@
+Parameters:
+  #=======================================================
+  #
+  #                   CloudFormation Parameters
+  #
+  #=======================================================
+  StageName:
+    Type: String
+    Default: prod
+    Description: Unique identifier of the resources in this stack
+  IdentifierToken:
+    Type: String
+    Default: ''
+    Description: Unique identifier used for performing the 1nce Provision Callback.
+  Codebase:
+    Type: String
+    Default: customer_stack.zip
+    AllowedValues:
+      - customer_stack.zip
+    NoEcho: true
+    Description: >-
+      Zip file which contains the codebase needed for the deployment of the
+      stack
+  CallBackUrl:
+    Type: String
+    Default: ''
+    Description: Parameter to override the Callback URL
+  Environment:
+    Type: String
+    Default: Prod
+    NoEcho: true
+    AllowedValues:
+      - Prod
+    Description: The environment used for the CloudFormation deployment
+Mappings:
+  #=======================================================
+  #
+  #                   CloudFormation Mappings
+  #
+  #=======================================================
+  CallbackConfiguration:
+    Prod:
+      CallbackUrl: 'https://ymzgm41krk.execute-api.eu-central-1.amazonaws.com/prod/onboarding/customer'
+  Configuration:
+    Prod:
+      1nceAWSId: '672401624271'
+      CodebaseVersion: V0.4
+      CodebaseBucket: prod-eu-central-1-cloudformation-templates
+      PostbackCreateSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-provisioning-failed-topic'
+      PostbackDeleteSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-deprovisioning-failed-topic'
+      PostbackRegistrationQueueUrl: >-
+        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-provisioned-sims-sqs
+      PostbackDeregistrationQueueUrl: >-
+        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-deprovisioned-sims-sqs
+Resources:
+  #=======================================================
+  #
+  #                     Log groups
+  #
+  #=======================================================
+  ProvisionThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-ProvisionThing'
+  RemoveThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-RemoveThing'
+  AttachCertToThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-AttachCertToThing'
+  DescribeThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DescribeThing'
+  CreateThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-CreateThing'
+  CreateKeysAndCertLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-CreateKeysAndCert'
+  DisableCertLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DisableCert'
+  DeleteCertLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DeleteCert'
+  DeleteThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DeleteThing'
+  AttachPolicyToCertLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-AttachPolicyToCert'
+  UpdateThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-UpdateThing'
+  DetachPolicyFromCertLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DetachPolicyFromCert'
+  DetachCertFromThingLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DetachCertFromThing'
+  DeletePolicyLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-DeletePolicy'
+  PostBackCertificateLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-PostBackCertificate'
+  SendToErrorQueueLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-SendToErrorQueue'
+  SendErrorToSnsTopicLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-SendErrorToSnsTopic'
+  GetCertificateFromDeviceLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-GetCertificateFromDevice'
+  CallbackLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-NotificationCallback'
+  BridgeMqttToIoTCoreLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StageName}-BridgeMqttToIoTCore'
+  #=======================================================
+  #
+  #                     Lambda IAM Role
+  #
+  #=======================================================
+  LambdaExecutionIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Policies:
+        - PolicyName: !Join
+            - '-'
+            - - iot-core
+              - lambda
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:CreateLogGroup'
+                Resource:
+                  - !Sub >-
+                    arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*
+              - Effect: Allow
+                Action:
+                  - 'logs:PutLogEvents'
+                Resource:
+                  - !Sub >-
+                    arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/*:*:*
+              - Effect: Allow
+                Action:
+                  - 'xray:PutTraceSegments'
+                  - 'xray:PutTelemetryRecords'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'iot:AcceptCertificateTransfer'
+                  - 'iot:AttachPolicy'
+                  - 'iot:AttachThingPrincipal'
+                  - 'iot:AttachPrincipalPolicy'
+                  - 'iot:CreateKeysAndCertificate'
+                  - 'iot:CreateThing'
+                  - 'iot:DeleteCertificate'
+                  - 'iot:DeleteThing'
+                  - 'iot:DetachPolicy'
+                  - 'iot:DescribeThing'
+                  - 'iot:UpdateCertificate'
+                  - 'iot:DetachThingPrincipal'
+                  - 'iot:UpdateThing'
+                  - 'iot:describeEndpoint'
+                  - 'iot:Publish'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'states:StartExecution'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 's3:DeleteObject'
+                  - 's3:GetObject'
+                  - 's3:ListBucket'
+                  - 's3:PutObject'
+                  - 's3:GetBucketPolicy'
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CertBucketS3
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CertBucketS3
+              - Effect: Allow
+                Action:
+                  - 'sqs:ReceiveMessage'
+                  - 'sqs:SendMessage'
+                  - 'sqs:DeleteMessage'
+                  - 'sqs:GetQueueAttributes'
+                Resource:
+                  - !GetAtt
+                    - CreateQueueSQS
+                    - Arn
+                  - !GetAtt
+                    - DeleteQueueSQS
+                    - Arn
+              - Effect: Allow
+                Action:
+                  - 'apigateway:GET'
+                Resource: '*'
+
+      Path: /
+  #=======================================================
+  #
+  #             Step Function IAM Role
+  #
+  #=======================================================
+  StateMachineExecutionIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - !Sub 'states.${AWS::Region}.amazonaws.com'
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: StatesExecutionPolicy
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'lambda:InvokeFunction'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'sqs:SendMessage'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'sns:Publish'
+                Resource: '*'
+  #=======================================================
+  #
+  #                     SQS Permissions
+  #
+  #=======================================================
+  ProvisionThingLambdaFunctionSqsPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref ProvisionThingLambdaFunction
+      SourceArn: !GetAtt
+        - CreateQueueSQS
+        - Arn
+      Principal: sqs.amazonaws.com
+  RemoveThingLambdaFunctionSqsPermission:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      Action: 'lambda:InvokeFunction'
+      FunctionName: !Ref RemoveThingLambdaFunction
+      SourceArn: !GetAtt
+        - DeleteQueueSQS
+        - Arn
+      Principal: sqs.amazonaws.com
+  #=======================================================
+  #
+  #                     S3 Buckets
+  #
+  #=======================================================
+  CertBucketS3:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Delete
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+  #=======================================================
+  #
+  #                      SQS Queues
+  #
+  #=======================================================
+  CreateQueueSQS:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${StageName}-CreateQueue'
+  DeleteQueueSQS:
+    Type: 'AWS::SQS::Queue'
+    Properties:
+      QueueName: !Sub '${StageName}-DeleteQueue'
+  #=======================================================
+  #
+  #                 SQS queue Resource Policy
+  #
+  #=======================================================
+  QueueAccessPolicy:
+    Type: 'AWS::SQS::QueuePolicy'
+    Properties:
+      PolicyDocument:
+        Id: QueueAccessPolicy
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !FindInMap
+                  - Configuration
+                  - !Ref Environment
+                  - 1nceAWSId
+            Action:
+              - 'sqs:SendMessage'
+            Resource: !GetAtt
+              - CreateQueueSQS
+              - Arn
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !FindInMap
+                  - Configuration
+                  - !Ref Environment
+                  - 1nceAWSId
+            Action:
+              - 'sqs:SendMessage'
+            Resource: !GetAtt
+              - DeleteQueueSQS
+              - Arn
+      Queues:
+        - !Ref CreateQueueSQS
+        - !Ref DeleteQueueSQS
+  #=======================================================
+  #
+  #                 Lambda Event Mappings
+  #
+  #=======================================================
+  LambdaFunctionActivateEventSourceMapping:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt
+        - CreateQueueSQS
+        - Arn
+      FunctionName: !GetAtt
+        - ProvisionThingLambdaFunction
+        - Arn
+  LambdaFunctionDeactivateEventSourceMapping:
+    Type: 'AWS::Lambda::EventSourceMapping'
+    Properties:
+      BatchSize: 10
+      Enabled: true
+      EventSourceArn: !GetAtt
+        - DeleteQueueSQS
+        - Arn
+      FunctionName: !GetAtt
+        - RemoveThingLambdaFunction
+        - Arn
+  #=======================================================
+  #
+  #                 Step Function Initiators
+  #
+  #=======================================================
+  ProvisionThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-ProvisionThing'
+      Handler: src/step_functions/provisionThing.provisionThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref CreateDeviceStepFunction
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - ProvisionThingLogGroup
+      - LambdaExecutionIamRole
+  RemoveThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-RemoveThing'
+      Handler: src/step_functions/removeThing.removeThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      Environment:
+        Variables:
+          STATE_MACHINE_ARN: !Ref RemoveDeviceStepFunction
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - RemoveThingLogGroup
+      - LambdaExecutionIamRole
+  #=======================================================
+  #
+  #               Provision Step Function Lambdas
+  #
+  #=======================================================
+  AttachCertToThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-AttachCertToThing'
+      Handler: src/step_functions/create/attachCertToThing.attachCertToThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - AttachCertToThingLogGroup
+      - LambdaExecutionIamRole
+  CreateThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-CreateThing'
+      Handler: src/step_functions/create/createThing.createThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - CreateThingLogGroup
+      - LambdaExecutionIamRole
+  CreateKeysAndCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-CreateKeysAndCert'
+      Handler: src/step_functions/create/createKeysAndCert.createKeysAndCert
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref CertBucketS3
+    DependsOn:
+      - CreateKeysAndCertLogGroup
+      - LambdaExecutionIamRole
+  AttachPolicyToCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-AttachPolicyToCert'
+      Handler: src/step_functions/create/attachPolicyToCert.attachPolicyToCert
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          THING_POLICY_NAME: !Ref ThingPolicy
+    DependsOn:
+      - AttachPolicyToCertLogGroup
+      - LambdaExecutionIamRole
+  UpdateThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-UpdateThing'
+      Handler: src/step_functions/create/updateThing.updateThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - UpdateThingLogGroup
+      - LambdaExecutionIamRole
+  #=======================================================
+  #
+  #               Deprovision Step Function Lambdas
+  #
+  #=======================================================
+  RemoveCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-RemoveCert'
+      Handler: src/step_functions/remove/removeCertificate.deleteCertificateFromS3
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref CertBucketS3
+    DependsOn:
+      - DeleteCertLogGroup
+      - LambdaExecutionIamRole
+  DescribeThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DescribeThing'
+      Handler: src/step_functions/remove/describeThing.describeThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DescribeThingLogGroup
+      - LambdaExecutionIamRole
+  DisableCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DisableCert'
+      Handler: src/step_functions/remove/disableCertificate.disableCertificate
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DisableCertLogGroup
+      - LambdaExecutionIamRole
+  DeleteCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DeleteCert'
+      Handler: src/step_functions/remove/deleteCertificate.deleteCertificate
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DeleteCertLogGroup
+      - LambdaExecutionIamRole
+  DeleteThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DeleteThing'
+      Handler: src/step_functions/remove/deleteThing.deleteThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DeleteThingLogGroup
+      - LambdaExecutionIamRole
+  DetachPolicyFromCertLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DetachPolicyFromCert'
+      Handler: >-
+        src/step_functions/remove/detachPolicyFromCertificate.detachPolicyFromCertificate
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      Environment:
+        Variables:
+          THING_POLICY_NAME: !Ref ThingPolicy
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DetachPolicyFromCertLogGroup
+      - LambdaExecutionIamRole
+  DetachCertFromThingLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-DetachCertFromThing'
+      Handler: >-
+        src/step_functions/remove/detachCertificateFromThing.detachCertificateFromThing
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - DetachCertFromThingLogGroup
+      - LambdaExecutionIamRole
+  #=======================================================
+  #
+  #                 1nce Callback Service
+  #
+  #=======================================================
+  CallBackLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-NotificationCallback'
+      Handler: src/callback/callback.callback
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - CallbackLogGroup
+      - LambdaExecutionIamRole
+  NotificationService:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt
+        - CallBackLambdaFunction
+        - Arn
+      IdentifierToken: !Sub '${IdentifierToken}'
+      CallbackUrl: !FindInMap
+        - CallbackConfiguration
+        - !Ref Environment
+        - CallbackUrl
+      OverrideCallBackUrl: !Sub '${CallBackUrl}'
+      AWS:
+        AccountId: !Ref 'AWS::AccountId'
+        Region: !Ref 'AWS::Region'
+        LambdaExecutionIamRole: !GetAtt
+          - LambdaExecutionIamRole
+          - Arn
+        StateMachineExecutionIamRole: !GetAtt
+          - StateMachineExecutionIamRole
+          - Arn
+      Resources:
+        ApiKeyId: !Ref ApiKey
+        Provisioning:
+          Url: !Ref CreateQueueSQS
+          Arn: !GetAtt
+            - CreateQueueSQS
+            - Arn
+        Deprovisioning:
+          Url: !Ref DeleteQueueSQS
+          Arn: !GetAtt
+            - DeleteQueueSQS
+            - Arn
+        Links:
+          Certificates: !Join
+            - ''
+            - - 'https://'
+              - !Ref NceSupportApiGatewayRestApi
+              - .execute-api.
+              - !Ref 'AWS::Region'
+              - .amazonaws.com/
+              - !Ref StageName
+              - /devices/certificates
+          Mqtt: !Join
+            - ''
+            - - 'https://'
+              - !Ref NceSupportApiGatewayRestApi
+              - .execute-api.
+              - !Ref 'AWS::Region'
+              - .amazonaws.com/
+              - !Ref StageName
+              - /mqtt
+      StackName: !Ref 'AWS::StackName'
+      CloudFormationVersion: !FindInMap
+        - Configuration
+        - !Ref Environment
+        - CodebaseVersion
+  #=======================================================
+  #
+  #                 Step Functions
+  #
+  #=======================================================
+  CreateDeviceStepFunction:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      StateMachineName: !Sub 'CreateDeviceStepFunction-${StageName}'
+      DefinitionString: !Sub
+        - |-
+          {
+            "StartAt": "createThing",
+            "States": {
+              "createThing": {
+                "Type": "Task",
+                "Resource": "${CreateThing}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "sendFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "createKeysAndCert"
+              },
+              "createKeysAndCert": {
+                "Type": "Task",
+                "Resource": "${CreateKeysAndCert}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "cleanUpThing",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "attachPolicyToCert"
+              },
+              "attachPolicyToCert": {
+                "Type": "Task",
+                "Resource": "${AttachPolicyToCert}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "disableCertificate",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "attachCertToThing"
+              },
+              "attachCertToThing": {
+                "Type": "Task",
+                "Resource": "${AttachCertToThing}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "detachPolicyFromCert",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "updateThing"
+              },
+              "updateThing": {
+                "Type": "Task",
+                "Resource": "${UpdateThing}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "detachCertFromThing",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "sendConfirmation"
+              },
+              "cleanUpThing": {
+                "Type": "Task",
+                "Resource": "${DeleteThing}",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "notifyFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "sendFailure"
+              },
+              "deleteCertificateFromIotCore": {
+                "Type": "Task",
+                "Resource": "${DeleteCert}",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "notifyFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "deleteCertificateFromS3"
+              },
+              "deleteCertificateFromS3": {
+                "Type": "Task",
+                "Resource": "${RemoveCert}",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "notifyFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "cleanUpThing"
+              },
+              "disableCertificate": {
+                "Type": "Task",
+                "Resource": "${DisableCert}",
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "Next": "deleteCertificateFromIotCore"
+              },
+              "detachPolicyFromCert": {
+                "Type": "Task",
+                "Resource": "${DetachPolicyFromCert}",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "notifyFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "disableCertificate"
+              },
+              "detachCertFromThing": {
+                "Type": "Task",
+                "Resource": "${DetachCertFromThing}",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "notifyFailure",
+                    "ResultPath": null
+                  }
+                ],
+                "Next": "detachPolicyFromCert"
+              },
+              "sendConfirmation": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::sqs:sendMessage",
+                "Parameters": {
+                  "MessageBody.$": "$",
+                  "QueueUrl": "${PostbackQueue}"
+                },
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "detachCertFromThing",
+                    "ResultPath": null
+                  }
+                ],
+                "Retry": [
+                  {
+                    "ErrorEquals": [
+                      "States.TaskFailed"
+                    ],
+                    "IntervalSeconds": 5,
+                    "MaxAttempts": 2,
+                    "BackoffRate": 2
+                  }
+                ],
+                "End": true
+              },
+              "sendFailure": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::sqs:sendMessage",
+                "Parameters": {
+                  "MessageBody": {
+                    "error": "CREATE_THING_FAILED",
+                    "iccid.$": "$.iccid",
+                    "ipAddress.$": "$.ipAddress",
+                    "executionId.$": "$$.Execution.Id"
+                  },
+                  "QueueUrl": "${PostbackQueue}"
+                },
+                "Next": "CreateThingFailed"
+              },
+              "notifyFailure": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::sns:publish",
+                "Parameters": {
+                  "Message": {
+                    "data.$": "$",
+                    "executionId.$": "$$.Execution.Id"
+                  },
+                  "Subject": "CREATE_THING_FAILED",
+                  "TopicArn": "${CreateThingFailedTopic}"
+                },
+                "ResultPath": null,
+                "Next": "sendFailure"
+              },
+              "CreateThingFailed": {
+                "Type": "Fail"
+              }
+            }
+          }
+        - PostbackQueue: !FindInMap
+            - Configuration
+            - !Ref Environment
+            - PostbackRegistrationQueueUrl
+          CreateThingFailedTopic: !FindInMap
+            - Configuration
+            - !Ref Environment
+            - PostbackCreateSnsArn
+          AttachCertToThing: !GetAtt
+            - AttachCertToThingLambdaFunction
+            - Arn
+          AttachPolicyToCert: !GetAtt
+            - AttachPolicyToCertLambdaFunction
+            - Arn
+          CreateKeysAndCert: !GetAtt
+            - CreateKeysAndCertLambdaFunction
+            - Arn
+          CreateThing: !GetAtt
+            - CreateThingLambdaFunction
+            - Arn
+          DeleteThing: !GetAtt
+            - DeleteThingLambdaFunction
+            - Arn
+          DeleteCert: !GetAtt
+            - DeleteCertLambdaFunction
+            - Arn
+          UpdateThing: !GetAtt
+            - UpdateThingLambdaFunction
+            - Arn
+          RemoveCert: !GetAtt
+            - RemoveCertLambdaFunction
+            - Arn
+          DisableCert: !GetAtt
+            - DisableCertLambdaFunction
+            - Arn
+          DetachCertFromThing: !GetAtt
+            - DetachCertFromThingLambdaFunction
+            - Arn
+          DetachPolicyFromCert: !GetAtt
+            - DetachPolicyFromCertLambdaFunction
+            - Arn
+      RoleArn: !GetAtt
+        - StateMachineExecutionIamRole
+        - Arn
+  RemoveDeviceStepFunction:
+    Type: 'AWS::StepFunctions::StateMachine'
+    Properties:
+      StateMachineName: !Sub 'RemoveDeviceStepFunction-${StageName}'
+      DefinitionString: !Sub
+        - |-
+          {
+              "Comment": "If the thing exists, delete it and any certificate and policy attached to it.",
+              "StartAt": "describeThing",
+              "States": {
+                "describeThing": {
+                  "Type": "Task",
+                  "Resource": "${DescribeThing}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "disableCertificate"
+                },
+                "disableCertificate": {
+                  "Type": "Task",
+                  "Resource": "${DisableCert}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "detachPolicyFromCertificate"
+                },
+                "detachPolicyFromCertificate": {
+                  "Type": "Task",
+                  "Resource": "${DetachPolicyFromCert}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "detachCertificateFromThing"
+                },
+                "detachCertificateFromThing": {
+                  "Type": "Task",
+                  "Resource": "${DetachCertFromThing}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "deleteCertificateFromIotCore"
+                },
+                "deleteCertificateFromIotCore": {
+                  "Type": "Task",
+                  "Resource": "${DeleteCert}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "deleteCertificateFromS3"
+                },
+                "deleteCertificateFromS3": {
+                  "Type": "Task",
+                  "Resource": "${RemoveCert}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "deleteThing"
+                },
+                "deleteThing": {
+                  "Type": "Task",
+                  "Resource": "${DeleteThing}",
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "Next": "sendConfirmation"
+                },
+                "sendFailure": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::sqs:sendMessage",
+                  "Parameters": {
+                    "MessageBody": {
+                      "error": "DELETE_THING_FAILED",
+                      "iccid.$": "$.iccid",
+                      "ipAddress.$": "$.ipAddress",
+                      "executionId.$": "$$.Execution.Id"
+                    },
+                    "QueueUrl": "${PostbackQueue}"
+                  },
+                  "Next": "DeleteThingFailed"
+                },
+                "sendConfirmation": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::sqs:sendMessage",
+                  "Parameters": {
+                    "MessageBody": {
+                      "ipAddress.$": "$.ipAddress"
+                    },
+                    "QueueUrl": "${PostbackQueue}"
+                  },
+                  "Retry": [
+                    {
+                      "ErrorEquals": [
+                        "States.TaskFailed"
+                      ],
+                      "IntervalSeconds": 5,
+                      "MaxAttempts": 2,
+                      "BackoffRate": 2
+                    }
+                  ],
+                  "Catch": [
+                    {
+                      "ErrorEquals": [
+                        "States.ALL"
+                      ],
+                      "Next": "notifyFailure",
+                      "ResultPath": null
+                    }
+                  ],
+                  "End": true
+                },
+                "notifyFailure": {
+                  "Type": "Task",
+                  "Resource": "arn:aws:states:::sns:publish",
+                  "Parameters": {
+                    "Message": {
+                      "data.$": "$",
+                      "executionId.$": "$$.Execution.Id"
+                    },
+                    "Subject": "DELETE_THING_FAILED",
+                    "TopicArn": "${DeleteThingFailedTopic}"
+                  },
+                  "ResultPath": null,
+                  "Next": "sendFailure"
+                },
+                "DeleteThingFailed": {
+                  "Type": "Fail"
+                }
+              }
+            }
+        - DescribeThing: !GetAtt
+            - DescribeThingLambdaFunction
+            - Arn
+          DisableCert: !GetAtt
+            - DisableCertLambdaFunction
+            - Arn
+          DetachPolicyFromCert: !GetAtt
+            - DetachPolicyFromCertLambdaFunction
+            - Arn
+          DetachCertFromThing: !GetAtt
+            - DetachCertFromThingLambdaFunction
+            - Arn
+          DeleteCert: !GetAtt
+            - DeleteCertLambdaFunction
+            - Arn
+          RemoveCert: !GetAtt
+            - RemoveCertLambdaFunction
+            - Arn
+          DeleteThing: !GetAtt
+            - DeleteThingLambdaFunction
+            - Arn
+          PostbackQueue: !FindInMap
+            - Configuration
+            - !Ref Environment
+            - PostbackDeregistrationQueueUrl
+          DeleteThingFailedTopic: !FindInMap
+            - Configuration
+            - !Ref Environment
+            - PostbackDeleteSnsArn
+      RoleArn: !GetAtt
+        - StateMachineExecutionIamRole
+        - Arn
+  #=======================================================
+  #
+  #                 API Gateways
+  #
+  #=======================================================
+  NceSupportApiGatewayRestApi:
+    Type: 'AWS::ApiGateway::RestApi'
+    Properties:
+      Name: !Sub '${StageName}-core-nce-support'
+      EndpointConfiguration:
+        Types:
+          - EDGE
+      Policy: ''
+  #=======================================================
+  #
+  #                 Device Endpoint Lambdas
+  #
+  #=======================================================
+  GetCertificateFromDeviceLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-GetCertificateFromDevice'
+      Handler: src/certificate_api/index.getCertificate
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      Environment:
+        Variables:
+          S3_BUCKET: !Ref CertBucketS3
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - GetCertificateFromDeviceLogGroup
+      - LambdaExecutionIamRole
+  #=======================================================
+  #
+  #                 MQTT Endpoint Lambdas
+  #
+  #=======================================================
+  MqttToIoTCoreLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        S3Key: !Join
+          - ''
+          - - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StageName}-BridgeMqttToIoTCore'
+      Handler: src/mqtt_api/index.mqttToIoTCore
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      Environment:
+        Variables:
+          iotCoreEndpointAddress: !GetAtt NotificationService.iotCoreEndpointAddress
+          awsAccountId: !Ref 'AWS::AccountId'
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - BridgeMqttToIoTCoreLogGroup
+      - LambdaExecutionIamRole
+
+  #=======================================================
+  #
+  #                 API Gateways Resources
+  #
+  #=======================================================
+
+  ApiGatewayResourceDevices:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt
+        - NceSupportApiGatewayRestApi
+        - RootResourceId
+      PathPart: devices
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+  ApiGatewayResourceDevicesCertificates:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !Ref ApiGatewayResourceDevices
+      PathPart: certificates
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+  ApiGatewayResourceDevicesCertificatesKeyCertkeyVar:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !Ref ApiGatewayResourceDevicesCertificates
+      PathPart: '{certKey}'
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+  ApiGatewayMethodDevicesCertificatesKeyCertkeyVarGet:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: GET
+      RequestParameters: {}
+      ResourceId: !Ref ApiGatewayResourceDevicesCertificatesKeyCertkeyVar
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+      ApiKeyRequired: true
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Join
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':apigateway:'
+            - !Ref 'AWS::Region'
+            - ':lambda:path/2015-03-31/functions/'
+            - !GetAtt
+              - GetCertificateFromDeviceLambdaFunction
+              - Arn
+            - /invocations
+      MethodResponses: []
+  MqttToIoTCoreLambdaPermissionApiGateway:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt
+        - MqttToIoTCoreLambdaFunction
+        - Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref NceSupportApiGatewayRestApi
+          - /*/*
+  GetCertificateFromDeviceLambdaPermissionApiGateway:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !GetAtt
+        - GetCertificateFromDeviceLambdaFunction
+        - Arn
+      Action: 'lambda:InvokeFunction'
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Join
+        - ''
+        - - 'arn:'
+          - !Ref 'AWS::Partition'
+          - ':execute-api:'
+          - !Ref 'AWS::Region'
+          - ':'
+          - !Ref 'AWS::AccountId'
+          - ':'
+          - !Ref NceSupportApiGatewayRestApi
+          - /*/*
+
+  ApiGatewayResourceMqtt:
+    Type: 'AWS::ApiGateway::Resource'
+    Properties:
+      ParentId: !GetAtt
+        - NceSupportApiGatewayRestApi
+        - RootResourceId
+      PathPart: mqtt
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+  ApiGatewayMethodMqttPost:
+    Type: 'AWS::ApiGateway::Method'
+    Properties:
+      HttpMethod: POST
+      RequestParameters: {}
+      ResourceId: !Ref ApiGatewayResourceMqtt
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+      ApiKeyRequired: true
+      AuthorizationType: NONE
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        # Building custom ARN path to not depend on MqttToIoTCoreLambdaFunction and to avoid circular dependencies
+        Uri: !Join
+          - ''
+          - - 'arn:'
+            - !Ref 'AWS::Partition'
+            - ':apigateway:'
+            - !Ref 'AWS::Region'
+            - ':lambda:path/2015-03-31/functions/'
+            - 'arn:aws:lambda:'
+            - !Ref 'AWS::Region'
+            - ':'
+            - !Ref 'AWS::AccountId'
+            - ':function:'
+            - !Sub '${StageName}-BridgeMqttToIoTCore'
+            - /invocations
+      MethodResponses: []
+
+  NceSupportApiGatewayDeployment:
+    Type: 'AWS::ApiGateway::Deployment'
+    DependsOn:
+      - ApiGatewayMethodDevicesCertificatesKeyCertkeyVarGet
+      - ApiGatewayMethodMqttPost
+    Properties:
+      RestApiId: !Ref NceSupportApiGatewayRestApi
+      StageName: !Ref StageName
+  #=======================================================
+  #
+  #                 API Key
+  #
+  #=======================================================
+  ApiKey:
+    Type: 'AWS::ApiGateway::ApiKey'
+    DependsOn:
+      - ApiGatewayMethodDevicesCertificatesKeyCertkeyVarGet
+      - NceSupportApiGatewayDeployment
+    Properties:
+      Name: !Sub '${StageName}-core-bss-support-api-key'
+      Description: CloudFormation API Key V1
+      Enabled: 'true'
+      StageKeys:
+        - RestApiId: !Ref NceSupportApiGatewayRestApi
+          StageName: !Ref StageName
+  UsagePlan:
+    Type: 'AWS::ApiGateway::UsagePlan'
+    DependsOn:
+      - ApiGatewayMethodDevicesCertificatesKeyCertkeyVarGet
+      - NceSupportApiGatewayDeployment
+    Properties:
+      ApiStages:
+        - ApiId: !Ref NceSupportApiGatewayRestApi
+          Stage: !Ref StageName
+      Description: API Usage Plan
+      UsagePlanName: !Sub '${StageName}-core-bss-support-usage-plan'
+  UsagePlanApiKey:
+    Type: 'AWS::ApiGateway::UsagePlanKey'
+    Properties:
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
+      UsagePlanId: !Ref UsagePlan
+
+  #=======================================================
+  #
+  #                 IoT Core Policy
+  #
+  #=======================================================
+  ThingPolicy:
+    Type: 'AWS::IoT::Policy'
+    DeletionPolicy: Retain
+    Properties:
+      PolicyName: !Join
+        - '-'
+        - - 1nceThingPolicy
+          - !FindInMap
+            - Configuration
+            - !Ref Environment
+            - CodebaseVersion
+          - !Ref 'AWS::StackName'
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Action:
+              - 'iot:Connect'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:iot:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':client/${iot:Connection.Thing.ThingName}'
+          - Effect: Allow
+            Action:
+              - 'iot:Publish'
+              - 'iot:Receive'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:iot:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':topic/${iot:Connection.Thing.ThingName}/*'
+          - Effect: Allow
+            Action:
+              - 'iot:Subscribe'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:iot:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':topicfilter/${iot:Connection.Thing.ThingName}/*'
+          - Effect: Allow
+            Action:
+              - 'iot:Receive'
+            Resource:
+              - !Join
+                - ''
+                - - 'arn:aws:iot:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':topic/${iot:Connection.Thing.ThingName}/*'
+  #=======================================================
+  #
+  #                 CloudFormation Outputs
+  #
+  #=======================================================
+Outputs:
+  CreateQueueSQSQueueURL:
+    Description: URL of new Amazon SQS CreateQueueSQS
+    Value: !Ref CreateQueueSQS
+  DeleteQueueSQSQueueURL:
+    Description: URL of new Amazon SQS DeleteQueueSQS
+    Value: !Ref DeleteQueueSQS
+  AccountID:
+    Description: Users AccountID
+    Value: !Sub '${AWS::AccountId}'
+  IotCoreEndpointAddress:
+    Description: IoT Core Endpoint Address
+    Value: !GetAtt NotificationService.iotCoreEndpointAddress

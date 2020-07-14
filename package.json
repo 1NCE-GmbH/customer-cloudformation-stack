@@ -1,0 +1,25 @@
+{
+  "name": "customer_cloudformation_stack",
+  "version": "0.0.1",
+  "description": "",
+  "main": "handler.js",
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "aws-xray-sdk-core": "^2.5.0",
+    "uuid": "^7.0.0"
+  },
+  "devDependencies": {
+    "aws-sdk": "^2.610.0",
+    "aws-sdk-mock": "^5.0.0",
+    "eslint": "^6.8.0",
+    "jest": "^25.1.0",
+    "jest-when": "^2.7.0",
+    "mime-types": "^2.1.26"
+  }
+}
