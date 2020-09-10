@@ -28,23 +28,15 @@ const iotCoreEndpointType = 'iot:Data-ATS';
  * @param context Lambda context
  */
 function callback(event, context) {
-    if (event.RequestType === "Delete") {
-        response.send(event, context, response.SUCCESS);
-    }
-
     const callbackUrl = !event.ResourceProperties.OverrideCallBackUrl ? event.ResourceProperties.CallbackUrl : event.ResourceProperties.OverrideCallBackUrl;
+
+    console.log(`Request Type: ${event.RequestType}`);
+    if (event.RequestType === "Delete" || event.RequestType === "Update") {
+        return response.send(event, context, response.SUCCESS);
+    }
     console.log(`Callback URL: ${callbackUrl}`);
 
     let iotEndpointAddress;
-
-    const success = (body) => {
-        console.log(`Successfully send the callback to 1NCE [${body}]`)
-        response.send(event, context, response.SUCCESS, {iotCoreEndpointAddress: iotEndpointAddress});
-    };
-    const error = (err) => {
-        console.error('Error:', err)
-        response.send(event, context, response.FAILED);
-    };
 
     getIotCoreEndpoint()
         .then((iotData) => {
@@ -62,7 +54,15 @@ function callback(event, context) {
             return apiKeyData.value;
         })
         .then((apiKey) => {
-            sendCustomerProvisionedCallback(event, callbackUrl, iotEndpointAddress, apiKey, success, error);
+            sendCustomerProvisionedCallback(event, callbackUrl, iotEndpointAddress, apiKey)
+                .then(() => {
+                    console.log(`Successfully sent the create callback to 1NCE`);
+                    response.send(event, context, response.SUCCESS, {iotCoreEndpointAddress: iotEndpointAddress});
+                })
+                .catch((err) => {
+                    console.error('Error:', err);
+                    response.send(event, context, response.FAILED);
+                });
         })
         .catch((err) => {
             console.error(err);
@@ -87,5 +87,6 @@ function getIotCoreEndpoint() {
 }
 
 module.exports = {
-    callback
+    callback,
+    getIotCoreEndpoint
 };

@@ -46,13 +46,10 @@ async function httpsAWSGet(apiPath, pathParameter) {
  *
  * @param post_url String with the path to the endpoint
  * @param data JSON data to send to the endpoint
- * @param success Success callback
- * @param error Error callback
  */
-function httpsPost(post_url, data, success, error) {
+function httpsPost(post_url, data) {
     let parsedUrl = url.parse(post_url);
     let requestBody = JSON.stringify(data);
-
 
     const options = {
         hostname: parsedUrl.hostname,
@@ -63,39 +60,36 @@ function httpsPost(post_url, data, success, error) {
             "content-length": requestBody.length
         },
     };
-    const req = https.request({
-        method: 'POST',
-        ...options,
-    }, res => {
-        const chunks = [];
-        res.on('data', data => chunks.push(data));
-        res.on('end', () => {
-            let body = Buffer.concat(chunks);
-            if (res.headers['content-type'] === 'application/json') {
-                body = JSON.parse(body)
-            }
-            if (res.statusCode >= 400) {
-                console.error(res);
-                if (error) {
-                    error(res);
+    return new Promise((resolve, reject) => {
+        let req = https.request({
+            method: 'POST',
+            ...options,
+        }, res => {
+            const chunks = [];
+            res.on('data', data => chunks.push(data));
+            res.on('end', () => {
+                let body;
+                if (chunks.length > 0) {
+                    body = Buffer.concat(chunks);
+                    if (res.headers['content-type'] === 'application/json') {
+                        body = JSON.parse(body);
+                    }
                 }
-            } else {
-                if (success) {
-                    success(body);
+
+                if (res.statusCode >= 400) {
+                    console.error(res);
+                    reject(res);
+                } else {
+                    resolve(body);
                 }
+            });
+        }).on('error', err => {
+                reject(err);
             }
-        });
-    });
-    req.on('error', err => {
-            if (error) {
-                error(err);
-            }
-        }
-    );
-    if (requestBody) {
+        );
         req.write(requestBody);
-    }
-    req.end();
+        req.end();
+    });
 }
 
 module.exports = {

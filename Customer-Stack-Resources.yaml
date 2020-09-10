@@ -4,9 +4,9 @@ Parameters:
   #                   CloudFormation Parameters
   #
   #=======================================================
-  StageName:
+  StackName:
     Type: String
-    Default: prod
+    Default: ''
     Description: Unique identifier of the resources in this stack
   IdentifierToken:
     Type: String
@@ -21,37 +21,34 @@ Parameters:
     Description: >-
       Zip file which contains the codebase needed for the deployment of the
       stack
-  CallBackUrl:
+  1nceAWSId:
     Type: String
     Default: ''
-    Description: Parameter to override the Callback URL
-  Environment:
+    Description: 1NCE AWS Account Id
+  CodebaseVersion:
     Type: String
-    Default: Prod
-    NoEcho: true
-    AllowedValues:
-      - Prod
-    Description: The environment used for the CloudFormation deployment
-Mappings:
-  #=======================================================
-  #
-  #                   CloudFormation Mappings
-  #
-  #=======================================================
-  CallbackConfiguration:
-    Prod:
-      CallbackUrl: 'https://ymzgm41krk.execute-api.eu-central-1.amazonaws.com/prod/onboarding/customer'
-  Configuration:
-    Prod:
-      1nceAWSId: '672401624271'
-      CodebaseVersion: V0.4
-      CodebaseBucket: prod-eu-central-1-cloudformation-templates
-      PostbackCreateSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-provisioning-failed-topic'
-      PostbackDeleteSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-deprovisioning-failed-topic'
-      PostbackRegistrationQueueUrl: >-
-        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-provisioned-sims-sqs
-      PostbackDeregistrationQueueUrl: >-
-        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-deprovisioned-sims-sqs
+    Default: ''
+    Description: Code base version
+  CodebaseBucket:
+    Type: String
+    Default: ''
+    Description: Code base bucket
+  PostbackCreateSnsArn:
+    Type: String
+    Default: ''
+    Description: Postback Create SNS Arn
+  PostbackDeleteSnsArn:
+    Type: String
+    Default: ''
+    Description: Postback Delete SNS Arn
+  PostbackRegistrationQueueUrl:
+    Type: String
+    Default: ''
+    Description: Postback Registration SQS Queue Url
+  PostbackDeregistrationQueueUrl:
+    Type: String
+    Default: ''
+    Description: Postback Deregistration SQS Queue Url
 Resources:
   #=======================================================
   #
@@ -61,83 +58,91 @@ Resources:
   ProvisionThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-ProvisionThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-ProvisionThing'
   RemoveThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-RemoveThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-RemoveThing'
   AttachCertToThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-AttachCertToThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-AttachCertToThing'
   DescribeThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DescribeThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DescribeThing'
   CreateThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-CreateThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-CreateThing'
   CreateKeysAndCertLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-CreateKeysAndCert'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-CreateKeysAndCert'
   DisableCertLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DisableCert'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DisableCert'
   DeleteCertLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DeleteCert'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DeleteCert'
   DeleteThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DeleteThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DeleteThing'
   AttachPolicyToCertLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-AttachPolicyToCert'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-AttachPolicyToCert'
   UpdateThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-UpdateThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-UpdateThing'
   DetachPolicyFromCertLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DetachPolicyFromCert'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DetachPolicyFromCert'
   DetachCertFromThingLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DetachCertFromThing'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DetachCertFromThing'
   DeletePolicyLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-DeletePolicy'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DeletePolicy'
   PostBackCertificateLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-PostBackCertificate'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-PostBackCertificate'
   SendToErrorQueueLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-SendToErrorQueue'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-SendToErrorQueue'
   SendErrorToSnsTopicLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-SendErrorToSnsTopic'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-SendErrorToSnsTopic'
   GetCertificateFromDeviceLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-GetCertificateFromDevice'
-  CallbackLogGroup:
-    Type: 'AWS::Logs::LogGroup'
-    Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-NotificationCallback'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-GetCertificateFromDevice'
   BridgeMqttToIoTCoreLogGroup:
     Type: 'AWS::Logs::LogGroup'
     Properties:
-      LogGroupName: !Sub '/aws/lambda/${StageName}-BridgeMqttToIoTCore'
+      LogGroupName: !Sub '/aws/lambda/${StackName}-BridgeMqttToIoTCore'
+  DownloadCodeLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StackName}-DownloadLambdaCode'
+  GetIotCoreEndpointLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StackName}-GetIotCoreEndpoint'
+  CleanUpCertificatesLogGroup:
+    Type: 'AWS::Logs::LogGroup'
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${StackName}-CleanUpCertificates'
   #=======================================================
   #
   #                     Lambda IAM Role
@@ -210,6 +215,7 @@ Resources:
                   - 's3:ListBucket'
                   - 's3:PutObject'
                   - 's3:GetBucketPolicy'
+                  - 'S3:PutObjectTagging'
                 Resource:
                   - !Join
                     - ''
@@ -220,6 +226,32 @@ Resources:
                     - ''
                     - - 'arn:aws:s3:::'
                       - !Ref CertBucketS3
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CodeBucketS3
+                      - /*
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CodeBucketS3
+              - Effect: Allow
+                Action:
+                  - 's3:GetObject'
+                  - 'S3:GetObjectTagging'
+                  - 's3:ListBucket'
+                Resource:
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CodebaseBucket
+                  - !Join
+                    - ''
+                    - - 'arn:aws:s3:::'
+                      - !Ref CodebaseBucket
+                      - /
+                      - !Ref CodebaseVersion
+                      - /*
               - Effect: Allow
                 Action:
                   - 'sqs:ReceiveMessage'
@@ -309,6 +341,14 @@ Resources:
         ServerSideEncryptionConfiguration:
           - ServerSideEncryptionByDefault:
               SSEAlgorithm: AES256
+  CodeBucketS3:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Delete
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
   #=======================================================
   #
   #                      SQS Queues
@@ -317,11 +357,11 @@ Resources:
   CreateQueueSQS:
     Type: 'AWS::SQS::Queue'
     Properties:
-      QueueName: !Sub '${StageName}-CreateQueue'
+      QueueName: !Sub '${StackName}-CreateQueue'
   DeleteQueueSQS:
     Type: 'AWS::SQS::Queue'
     Properties:
-      QueueName: !Sub '${StageName}-DeleteQueue'
+      QueueName: !Sub '${StackName}-DeleteQueue'
   #=======================================================
   #
   #                 SQS queue Resource Policy
@@ -337,10 +377,7 @@ Resources:
           - Effect: Allow
             Principal:
               AWS:
-                - !FindInMap
-                  - Configuration
-                  - !Ref Environment
-                  - 1nceAWSId
+                - !Ref 1nceAWSId
             Action:
               - 'sqs:SendMessage'
             Resource: !GetAtt
@@ -349,10 +386,7 @@ Resources:
           - Effect: Allow
             Principal:
               AWS:
-                - !FindInMap
-                  - Configuration
-                  - !Ref Environment
-                  - 1nceAWSId
+                - !Ref 1nceAWSId
             Action:
               - 'sqs:SendMessage'
             Resource: !GetAtt
@@ -397,19 +431,13 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-ProvisionThing'
+      FunctionName: !Sub '${StackName}-ProvisionThing'
       Handler: src/step_functions/provisionThing.provisionThing
       MemorySize: 256
       Role: !GetAtt
@@ -425,23 +453,18 @@ Resources:
     DependsOn:
       - ProvisionThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   RemoveThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-RemoveThing'
+      FunctionName: !Sub '${StackName}-RemoveThing'
       Handler: src/step_functions/removeThing.removeThing
       MemorySize: 256
       Role: !GetAtt
@@ -457,6 +480,7 @@ Resources:
     DependsOn:
       - RemoveThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   #=======================================================
   #
   #               Provision Step Function Lambdas
@@ -466,19 +490,13 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-AttachCertToThing'
+      FunctionName: !Sub '${StackName}-AttachCertToThing'
       Handler: src/step_functions/create/attachCertToThing.attachCertToThing
       MemorySize: 256
       Role: !GetAtt
@@ -491,23 +509,18 @@ Resources:
     DependsOn:
       - AttachCertToThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   CreateThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-CreateThing'
+      FunctionName: !Sub '${StackName}-CreateThing'
       Handler: src/step_functions/create/createThing.createThing
       MemorySize: 256
       Role: !GetAtt
@@ -520,23 +533,18 @@ Resources:
     DependsOn:
       - CreateThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   CreateKeysAndCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-CreateKeysAndCert'
+      FunctionName: !Sub '${StackName}-CreateKeysAndCert'
       Handler: src/step_functions/create/createKeysAndCert.createKeysAndCert
       MemorySize: 256
       Role: !GetAtt
@@ -552,23 +560,18 @@ Resources:
     DependsOn:
       - CreateKeysAndCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   AttachPolicyToCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-AttachPolicyToCert'
+      FunctionName: !Sub '${StackName}-AttachPolicyToCert'
       Handler: src/step_functions/create/attachPolicyToCert.attachPolicyToCert
       MemorySize: 256
       Role: !GetAtt
@@ -584,23 +587,18 @@ Resources:
     DependsOn:
       - AttachPolicyToCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   UpdateThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-UpdateThing'
+      FunctionName: !Sub '${StackName}-UpdateThing'
       Handler: src/step_functions/create/updateThing.updateThing
       MemorySize: 256
       Role: !GetAtt
@@ -613,6 +611,7 @@ Resources:
     DependsOn:
       - UpdateThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   #=======================================================
   #
   #               Deprovision Step Function Lambdas
@@ -622,19 +621,13 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-RemoveCert'
+      FunctionName: !Sub '${StackName}-RemoveCert'
       Handler: src/step_functions/remove/removeCertificate.deleteCertificateFromS3
       MemorySize: 256
       Role: !GetAtt
@@ -650,23 +643,18 @@ Resources:
     DependsOn:
       - DeleteCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DescribeThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DescribeThing'
+      FunctionName: !Sub '${StackName}-DescribeThing'
       Handler: src/step_functions/remove/describeThing.describeThing
       MemorySize: 256
       Role: !GetAtt
@@ -679,23 +667,18 @@ Resources:
     DependsOn:
       - DescribeThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DisableCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DisableCert'
+      FunctionName: !Sub '${StackName}-DisableCert'
       Handler: src/step_functions/remove/disableCertificate.disableCertificate
       MemorySize: 256
       Role: !GetAtt
@@ -708,23 +691,18 @@ Resources:
     DependsOn:
       - DisableCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DeleteCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DeleteCert'
+      FunctionName: !Sub '${StackName}-DeleteCert'
       Handler: src/step_functions/remove/deleteCertificate.deleteCertificate
       MemorySize: 256
       Role: !GetAtt
@@ -737,23 +715,18 @@ Resources:
     DependsOn:
       - DeleteCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DeleteThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DeleteThing'
+      FunctionName: !Sub '${StackName}-DeleteThing'
       Handler: src/step_functions/remove/deleteThing.deleteThing
       MemorySize: 256
       Role: !GetAtt
@@ -766,23 +739,18 @@ Resources:
     DependsOn:
       - DeleteThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DetachPolicyFromCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DetachPolicyFromCert'
+      FunctionName: !Sub '${StackName}-DetachPolicyFromCert'
       Handler: >-
         src/step_functions/remove/detachPolicyFromCertificate.detachPolicyFromCertificate
       MemorySize: 256
@@ -799,23 +767,18 @@ Resources:
     DependsOn:
       - DetachPolicyFromCertLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   DetachCertFromThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-DetachCertFromThing'
+      FunctionName: !Sub '${StackName}-DetachCertFromThing'
       Handler: >-
         src/step_functions/remove/detachCertificateFromThing.detachCertificateFromThing
       MemorySize: 256
@@ -829,98 +792,147 @@ Resources:
     DependsOn:
       - DetachCertFromThingLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
   #=======================================================
   #
-  #                 1nce Callback Service
+  #                 1nce Code Download Service
   #
   #=======================================================
-  CallBackLambdaFunction:
+  DownloadCodeLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
-        S3Key: !Join
-          - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
-            - /
-            - !Ref Codebase
-      FunctionName: !Sub '${StageName}-NotificationCallback'
-      Handler: src/callback/callback.callback
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def copy_objects(source_bucket, dest_bucket, objects):
+              s3 = boto3.client('s3')
+              for o in objects:
+                  copy_source = {
+                      'Bucket': source_bucket,
+                      'Key': o
+                  }
+                  print('copy_source: %s' % copy_source)
+                  print('dest_bucket = %s'%dest_bucket)
+                  s3.copy_object(CopySource=copy_source, Bucket=dest_bucket,
+                        Key=o)
+          def delete_objects(bucket, objects):
+              s3 = boto3.client('s3')
+              objects = {'Objects': [{'Key': o} for o in objects]}
+              s3.delete_objects(Bucket=bucket, Delete=objects)
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, None)
+          def handler(event, context):
+              # make sure we send a failure to CloudFormation if the function
+              # is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+                        / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  source_bucket = event['ResourceProperties']['SourceBucket']
+                  dest_bucket = event['ResourceProperties']['DestBucket']
+                  objects = event['ResourceProperties']['Objects']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(dest_bucket, objects)
+                  else:
+                      copy_objects(source_bucket, dest_bucket, objects)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, None)
+      FunctionName: !Sub '${StackName}-DownloadCodeService'
+      Handler: index.handler
       MemorySize: 256
       Role: !GetAtt
         - LambdaExecutionIamRole
         - Arn
-      Runtime: nodejs12.x
-      Timeout: 6
+      Runtime: python2.7
+      Timeout: 240
       TracingConfig:
         Mode: Active
     DependsOn:
-      - CallbackLogGroup
+      - DownloadCodeLogGroup
       - LambdaExecutionIamRole
-  NotificationService:
+  CodeDownloadService:
     Type: 'AWS::CloudFormation::CustomResource'
     Version: '1.0'
     Properties:
-      ServiceToken: !GetAtt
-        - CallBackLambdaFunction
+      ServiceToken: !GetAtt 'DownloadCodeLambdaFunction.Arn'
+      DestBucket: !Ref 'CodeBucketS3'
+      SourceBucket: !Ref CodebaseBucket
+      Objects:
+        - !Join
+          - ''
+          - - !Ref CodebaseVersion
+            - /
+            - !Ref Codebase
+  #=======================================================
+  #
+  #                 1nce Clean-up Cert bucket Service
+  #
+  #=======================================================
+  CleanUpCertificatesLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        ZipFile: |
+          import json
+          import logging
+          import threading
+          import boto3
+          import cfnresponse
+          def delete_objects(bucket):
+              s3 = boto3.resource('s3')
+              bucket = s3.Bucket(bucket)
+              bucket.objects.all().delete()
+          def timeout(event, context):
+              logging.error('Execution is about to time out, sending failure response to CloudFormation')
+              cfnresponse.send(event, context, cfnresponse.FAILED, {}, None)
+          def handler(event, context):
+              # make sure we send a failure to CloudFormation if the function
+              # is going to timeout
+              timer = threading.Timer((context.get_remaining_time_in_millis()
+                        / 1000.00) - 0.5, timeout, args=[event, context])
+              timer.start()
+              print('Received event: %s' % json.dumps(event))
+              status = cfnresponse.SUCCESS
+              try:
+                  bucket = event['ResourceProperties']['Bucket']
+                  if event['RequestType'] == 'Delete':
+                      delete_objects(bucket)
+              except Exception as e:
+                  logging.error('Exception: %s' % e, exc_info=True)
+                  status = cfnresponse.FAILED
+              finally:
+                  timer.cancel()
+                  cfnresponse.send(event, context, status, {}, None)
+      FunctionName: !Sub '${StackName}-CleanUpCertificates'
+      Handler: index.handler
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
         - Arn
-      IdentifierToken: !Sub '${IdentifierToken}'
-      CallbackUrl: !FindInMap
-        - CallbackConfiguration
-        - !Ref Environment
-        - CallbackUrl
-      OverrideCallBackUrl: !Sub '${CallBackUrl}'
-      AWS:
-        AccountId: !Ref 'AWS::AccountId'
-        Region: !Ref 'AWS::Region'
-        LambdaExecutionIamRole: !GetAtt
-          - LambdaExecutionIamRole
-          - Arn
-        StateMachineExecutionIamRole: !GetAtt
-          - StateMachineExecutionIamRole
-          - Arn
-      Resources:
-        ApiKeyId: !Ref ApiKey
-        Provisioning:
-          Url: !Ref CreateQueueSQS
-          Arn: !GetAtt
-            - CreateQueueSQS
-            - Arn
-        Deprovisioning:
-          Url: !Ref DeleteQueueSQS
-          Arn: !GetAtt
-            - DeleteQueueSQS
-            - Arn
-        Links:
-          Certificates: !Join
-            - ''
-            - - 'https://'
-              - !Ref NceSupportApiGatewayRestApi
-              - .execute-api.
-              - !Ref 'AWS::Region'
-              - .amazonaws.com/
-              - !Ref StageName
-              - /devices/certificates
-          Mqtt: !Join
-            - ''
-            - - 'https://'
-              - !Ref NceSupportApiGatewayRestApi
-              - .execute-api.
-              - !Ref 'AWS::Region'
-              - .amazonaws.com/
-              - !Ref StageName
-              - /mqtt
-      StackName: !Ref 'AWS::StackName'
-      CloudFormationVersion: !FindInMap
-        - Configuration
-        - !Ref Environment
-        - CodebaseVersion
+      Runtime: python2.7
+      Timeout: 360
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - CleanUpCertificatesLogGroup
+      - LambdaExecutionIamRole
+  CleanUpCertificatesService:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt 'CleanUpCertificatesLambdaFunction.Arn'
+      Bucket: !Ref 'CertBucketS3'
   #=======================================================
   #
   #                 Step Functions
@@ -929,7 +941,7 @@ Resources:
   CreateDeviceStepFunction:
     Type: 'AWS::StepFunctions::StateMachine'
     Properties:
-      StateMachineName: !Sub 'CreateDeviceStepFunction-${StageName}'
+      StateMachineName: !Sub 'CreateDeviceStepFunction-${StackName}'
       DefinitionString: !Sub
         - |-
           {
@@ -1201,14 +1213,8 @@ Resources:
               }
             }
           }
-        - PostbackQueue: !FindInMap
-            - Configuration
-            - !Ref Environment
-            - PostbackRegistrationQueueUrl
-          CreateThingFailedTopic: !FindInMap
-            - Configuration
-            - !Ref Environment
-            - PostbackCreateSnsArn
+        - PostbackQueue: !Ref PostbackRegistrationQueueUrl
+          CreateThingFailedTopic: !Ref PostbackCreateSnsArn
           AttachCertToThing: !GetAtt
             - AttachCertToThingLambdaFunction
             - Arn
@@ -1248,7 +1254,7 @@ Resources:
   RemoveDeviceStepFunction:
     Type: 'AWS::StepFunctions::StateMachine'
     Properties:
-      StateMachineName: !Sub 'RemoveDeviceStepFunction-${StageName}'
+      StateMachineName: !Sub 'RemoveDeviceStepFunction-${StackName}'
       DefinitionString: !Sub
         - |-
           {
@@ -1507,14 +1513,8 @@ Resources:
           DeleteThing: !GetAtt
             - DeleteThingLambdaFunction
             - Arn
-          PostbackQueue: !FindInMap
-            - Configuration
-            - !Ref Environment
-            - PostbackDeregistrationQueueUrl
-          DeleteThingFailedTopic: !FindInMap
-            - Configuration
-            - !Ref Environment
-            - PostbackDeleteSnsArn
+          PostbackQueue: !Ref PostbackDeregistrationQueueUrl
+          DeleteThingFailedTopic: !Ref PostbackDeleteSnsArn
       RoleArn: !GetAtt
         - StateMachineExecutionIamRole
         - Arn
@@ -1526,7 +1526,7 @@ Resources:
   NceSupportApiGatewayRestApi:
     Type: 'AWS::ApiGateway::RestApi'
     Properties:
-      Name: !Sub '${StageName}-core-nce-support'
+      Name: !Sub '${StackName}-core-nce-support'
       EndpointConfiguration:
         Types:
           - EDGE
@@ -1540,19 +1540,13 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-GetCertificateFromDevice'
+      FunctionName: !Sub '${StackName}-GetCertificateFromDevice'
       Handler: src/certificate_api/index.getCertificate
       MemorySize: 256
       Role: !GetAtt
@@ -1568,6 +1562,41 @@ Resources:
     DependsOn:
       - GetCertificateFromDeviceLogGroup
       - LambdaExecutionIamRole
+      - CodeDownloadService
+  #=======================================================
+  #
+  #           Get Iot Core Endpoint Address Service
+  #
+  #=======================================================
+  GetIotCoreEndpointService:
+    Type: 'AWS::CloudFormation::CustomResource'
+    Version: '1.0'
+    Properties:
+      ServiceToken: !GetAtt 'GetIotCoreEndpointLambdaFunction.Arn'
+  GetIotCoreEndpointLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Code:
+        S3Bucket: !Ref CodeBucketS3
+        S3Key: !Join
+          - ''
+          - - !Ref CodebaseVersion
+            - /
+            - !Ref Codebase
+      FunctionName: !Sub '${StackName}-GetIotCoreEndpoint'
+      Handler: src/iot_core/get.handler
+      MemorySize: 256
+      Role: !GetAtt
+        - LambdaExecutionIamRole
+        - Arn
+      Runtime: nodejs12.x
+      Timeout: 6
+      TracingConfig:
+        Mode: Active
+    DependsOn:
+      - GetIotCoreEndpointLogGroup
+      - LambdaExecutionIamRole
+      - CodeDownloadService
   #=======================================================
   #
   #                 MQTT Endpoint Lambdas
@@ -1577,19 +1606,13 @@ Resources:
     Type: 'AWS::Lambda::Function'
     Properties:
       Code:
-        S3Bucket: !FindInMap
-          - Configuration
-          - !Ref Environment
-          - CodebaseBucket
+        S3Bucket: !Ref CodeBucketS3
         S3Key: !Join
           - ''
-          - - !FindInMap
-              - Configuration
-              - !Ref Environment
-              - CodebaseVersion
+          - - !Ref CodebaseVersion
             - /
             - !Ref Codebase
-      FunctionName: !Sub '${StageName}-BridgeMqttToIoTCore'
+      FunctionName: !Sub '${StackName}-BridgeMqttToIoTCore'
       Handler: src/mqtt_api/index.mqttToIoTCore
       MemorySize: 256
       Role: !GetAtt
@@ -1599,20 +1622,19 @@ Resources:
       Timeout: 6
       Environment:
         Variables:
-          iotCoreEndpointAddress: !GetAtt NotificationService.iotCoreEndpointAddress
+          iotCoreEndpointAddress: !GetAtt GetIotCoreEndpointService.iotCoreEndpointAddress
           awsAccountId: !Ref 'AWS::AccountId'
       TracingConfig:
         Mode: Active
     DependsOn:
       - BridgeMqttToIoTCoreLogGroup
       - LambdaExecutionIamRole
-
+      - CodeDownloadService
   #=======================================================
   #
   #                 API Gateways Resources
   #
   #=======================================================
-
   ApiGatewayResourceDevices:
     Type: 'AWS::ApiGateway::Resource'
     Properties:
@@ -1729,7 +1751,7 @@ Resources:
             - ':'
             - !Ref 'AWS::AccountId'
             - ':function:'
-            - !Sub '${StageName}-BridgeMqttToIoTCore'
+            - !Sub '${StackName}-BridgeMqttToIoTCore'
             - /invocations
       MethodResponses: []
 
@@ -1740,7 +1762,7 @@ Resources:
       - ApiGatewayMethodMqttPost
     Properties:
       RestApiId: !Ref NceSupportApiGatewayRestApi
-      StageName: !Ref StageName
+      StageName: !Ref StackName
   #=======================================================
   #
   #                 API Key
@@ -1752,12 +1774,12 @@ Resources:
       - ApiGatewayMethodDevicesCertificatesKeyCertkeyVarGet
       - NceSupportApiGatewayDeployment
     Properties:
-      Name: !Sub '${StageName}-core-bss-support-api-key'
+      Name: !Sub '${StackName}-core-bss-support-api-key'
       Description: CloudFormation API Key V1
       Enabled: 'true'
       StageKeys:
         - RestApiId: !Ref NceSupportApiGatewayRestApi
-          StageName: !Ref StageName
+          StageName: !Ref StackName
   UsagePlan:
     Type: 'AWS::ApiGateway::UsagePlan'
     DependsOn:
@@ -1766,9 +1788,9 @@ Resources:
     Properties:
       ApiStages:
         - ApiId: !Ref NceSupportApiGatewayRestApi
-          Stage: !Ref StageName
+          Stage: !Ref StackName
       Description: API Usage Plan
-      UsagePlanName: !Sub '${StageName}-core-bss-support-usage-plan'
+      UsagePlanName: !Sub '${StackName}-core-bss-support-usage-plan'
   UsagePlanApiKey:
     Type: 'AWS::ApiGateway::UsagePlanKey'
     Properties:
@@ -1788,11 +1810,8 @@ Resources:
       PolicyName: !Join
         - '-'
         - - 1nceThingPolicy
-          - !FindInMap
-            - Configuration
-            - !Ref Environment
-            - CodebaseVersion
-          - !Ref 'AWS::StackName'
+          - !Ref CodebaseVersion
+          - !Ref StackName
       PolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -1847,15 +1866,59 @@ Resources:
   #
   #=======================================================
 Outputs:
-  CreateQueueSQSQueueURL:
+  CreateQueueSQSUrl:
     Description: URL of new Amazon SQS CreateQueueSQS
     Value: !Ref CreateQueueSQS
-  DeleteQueueSQSQueueURL:
+  DeleteQueueSQSUrl:
     Description: URL of new Amazon SQS DeleteQueueSQS
     Value: !Ref DeleteQueueSQS
+  CreateQueueSQSArn:
+    Description: URL of new Amazon SQS CreateQueueSQS
+    Value: !GetAtt
+      - CreateQueueSQS
+      - Arn
+  DeleteQueueSQSArn:
+    Description: URL of new Amazon SQS DeleteQueueSQS
+    Value: !GetAtt
+      - DeleteQueueSQS
+      - Arn
   AccountID:
     Description: Users AccountID
     Value: !Sub '${AWS::AccountId}'
-  IotCoreEndpointAddress:
-    Description: IoT Core Endpoint Address
-    Value: !GetAtt NotificationService.iotCoreEndpointAddress
+  LambdaExecutionIamRole:
+    Description: Lambda Execution IAM Role ARN
+    Value: !GetAtt
+      - LambdaExecutionIamRole
+      - Arn
+  StateMachineExecutionIamRole:
+    Description: State Machine Execution IAM Role ARN
+    Value: !GetAtt
+      - StateMachineExecutionIamRole
+      - Arn
+  ApiKeyId:
+    Description: API key ID
+    Value: !Ref ApiKey
+  CertificatesUrl:
+    Description: URL for getting IoT Thing Certificates
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !Ref NceSupportApiGatewayRestApi
+        - .execute-api.
+        - !Ref 'AWS::Region'
+        - .amazonaws.com/
+        - !Ref StackName
+        - /devices/certificates
+  MqttBridgeUrl:
+    Description: MQTT Bridge URL
+    Value: !Join
+      - ''
+      - - 'https://'
+        - !Ref NceSupportApiGatewayRestApi
+        - .execute-api.
+        - !Ref 'AWS::Region'
+        - .amazonaws.com/
+        - !Ref StackName
+        - /mqtt
+
+

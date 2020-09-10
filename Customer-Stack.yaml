@@ -1,0 +1,177 @@
+Parameters:
+  #=======================================================
+  #
+  #                   CloudFormation Parameters
+  #
+  #=======================================================
+  IdentifierToken:
+    Type: String
+    Default: ''
+    Description: Unique identifier used for performing the 1nce Provision Callback.
+  Codebase:
+    Type: String
+    Default: customer_stack.zip
+    AllowedValues:
+      - customer_stack.zip
+    NoEcho: true
+    Description: >-
+      Zip file which contains the codebase needed for the deployment of the
+      stack
+  OverrideCallBackUrl:
+    Type: String
+    Default: ''
+    Description: Parameter to override the Callback URL
+  Environment:
+    Type: String
+    Default: Prod
+    AllowedValues:
+      - Prod
+    Description: The environment used for the CloudFormation deployment
+Mappings:
+  #=======================================================
+  #
+  #                   CloudFormation Mappings
+  #
+  #=======================================================
+  CallbackConfiguration:
+    Prod:
+      CallbackUrl: 'https://ymzgm41krk.execute-api.eu-central-1.amazonaws.com/prod/onboarding/customer'
+  Configuration:
+    Prod:
+      1nceAWSId: '672401624271'
+      CodebaseVersion: V0.7
+      CodebaseBucket: prod-eu-central-1-cloudformation-templates
+      PostbackCreateSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-provisioning-failed-topic'
+      PostbackDeleteSnsArn: 'arn:aws:sns:eu-central-1:672401624271:prod-thing-deprovisioning-failed-topic'
+      PostbackRegistrationQueueUrl: >-
+        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-provisioned-sims-sqs
+      PostbackDeregistrationQueueUrl: >-
+        https://sqs.eu-central-1.amazonaws.com/672401624271/prod-deprovisioned-sims-sqs
+Resources:
+  CustomerResourcesStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      Parameters:
+        StackName: !Ref AWS::StackName
+        IdentifierToken: !Ref IdentifierToken
+        Codebase: !Ref Codebase
+        1nceAWSId: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - 1nceAWSId
+        CodebaseVersion: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseVersion
+        CodebaseBucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        PostbackCreateSnsArn: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - PostbackCreateSnsArn
+        PostbackDeleteSnsArn: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - PostbackDeleteSnsArn
+        PostbackRegistrationQueueUrl: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - PostbackRegistrationQueueUrl
+        PostbackDeregistrationQueueUrl: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - PostbackDeregistrationQueueUrl
+      TemplateURL: !Join
+          - ''
+          - - https://
+            - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseBucket
+            - .s3-eu-central-1.amazonaws.com/
+            - !FindInMap
+              - Configuration
+              - !Ref Environment
+              - CodebaseVersion
+            - /Customer-Stack-Resources.yaml
+    DependsOn:
+      - DeleteCallbackStack
+  CreateCallbackStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      Parameters:
+        StackName: !Ref AWS::StackName
+        IdentifierToken: !Ref IdentifierToken
+        Codebase: !Ref Codebase
+        ApiKeyId: !GetAtt CustomerResourcesStack.Outputs.ApiKeyId
+        CertificatesUrl: !GetAtt CustomerResourcesStack.Outputs.CertificatesUrl
+        MqttBridgeUrl: !GetAtt CustomerResourcesStack.Outputs.MqttBridgeUrl
+        CreateQueueSQSArn: !GetAtt CustomerResourcesStack.Outputs.CreateQueueSQSArn
+        CreateQueueSQSUrl: !GetAtt CustomerResourcesStack.Outputs.CreateQueueSQSUrl
+        DeleteQueueSQSArn: !GetAtt CustomerResourcesStack.Outputs.DeleteQueueSQSArn
+        DeleteQueueSQSUrl: !GetAtt CustomerResourcesStack.Outputs.DeleteQueueSQSUrl
+        LambdaExecutionIamRoleArn: !GetAtt CustomerResourcesStack.Outputs.LambdaExecutionIamRole
+        StateMachineExecutionIamRoleArn: !GetAtt CustomerResourcesStack.Outputs.StateMachineExecutionIamRole
+        CodebaseBucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        CodebaseVersion: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseVersion
+        CallbackUrl: !FindInMap
+          - CallbackConfiguration
+          - !Ref Environment
+          - CallbackUrl
+        OverrideCallBackUrl: !Ref OverrideCallBackUrl
+      TemplateURL: !Join
+        - ''
+        - - https://
+          - !FindInMap
+            - Configuration
+            - !Ref Environment
+            - CodebaseBucket
+          - .s3-eu-central-1.amazonaws.com/
+          - !FindInMap
+            - Configuration
+            - !Ref Environment
+            - CodebaseVersion
+          - /Customer-Stack-Create-Callback.yaml
+    DependsOn:
+      - CustomerResourcesStack
+  DeleteCallbackStack:
+    Type: 'AWS::CloudFormation::Stack'
+    Properties:
+      Parameters:
+        StackName: !Ref AWS::StackName
+        IdentifierToken: !Ref IdentifierToken
+        Codebase: !Ref Codebase
+        OverrideCallBackUrl: !Ref OverrideCallBackUrl
+        CodebaseBucket: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseBucket
+        CodebaseVersion: !FindInMap
+          - Configuration
+          - !Ref Environment
+          - CodebaseVersion
+        CallbackUrl: !FindInMap
+          - CallbackConfiguration
+          - !Ref Environment
+          - CallbackUrl
+      TemplateURL: !Join
+        - ''
+        - - https://
+          - !FindInMap
+            - Configuration
+            - !Ref Environment
+            - CodebaseBucket
+          - .s3-eu-central-1.amazonaws.com/
+          - !FindInMap
+            - Configuration
+            - !Ref Environment
+            - CodebaseVersion
+          - /Customer-Stack-Delete-Callback.yaml
