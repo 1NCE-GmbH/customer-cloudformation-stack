@@ -1,20 +1,19 @@
 "use strict";
 const {sendCustomerProvisionedCallback} = require("./callbackService");
-const response = require('../common/cfnresponse');
-const {getService, CLIENT_VERSIONS} = require('../common/awsSdk');
+const response = require("../common/cfnresponse");
+const {getService, CLIENT_VERSIONS} = require("../common/awsSdk");
 
 const iot = getService({
-    service: require('aws-sdk/clients/iot'),
+    service: require("aws-sdk/clients/iot"),
     apiVersion: CLIENT_VERSIONS.iot
 });
 
 const apiGateway = getService({
-    service: require('aws-sdk/clients/apigateway'),
+    service: require("aws-sdk/clients/apigateway"),
     apiVersion: CLIENT_VERSIONS.apiGateway
 });
 
-const iotCoreEndpointType = 'iot:Data-ATS';
-
+const iotCoreEndpointType = "iot:Data-ATS";
 
 /**
  * Callback to notify 1nce about a successful CloudFormation stack deployment.
@@ -28,7 +27,9 @@ const iotCoreEndpointType = 'iot:Data-ATS';
  * @param context Lambda context
  */
 function callback(event, context) {
-    const callbackUrl = !event.ResourceProperties.OverrideCallBackUrl ? event.ResourceProperties.CallbackUrl : event.ResourceProperties.OverrideCallBackUrl;
+    const callbackUrl = !event.ResourceProperties.OverrideCallBackUrl
+        ? event.ResourceProperties.CallbackUrl
+        : event.ResourceProperties.OverrideCallBackUrl;
 
     console.log(`Request Type: ${event.RequestType}`);
     if (event.RequestType === "Delete" || event.RequestType === "Update") {
@@ -45,9 +46,15 @@ function callback(event, context) {
             }
             iotEndpointAddress = iotData.endpointAddress;
 
-            return getApiKey(event.ResourceProperties.Resources.ApiKeyId);
+            return event.ResourceProperties["1nce"].IntegrationType === "FULL_INTEGRATION"
+                ? getApiKey(event.ResourceProperties.Resources.ApiKeyId)
+                : undefined;
         })
         .then((apiKeyData) => {
+            if (event.ResourceProperties["1nce"].IntegrationType === "DATA_INTEGRATION") {
+                return undefined;
+            }
+
             if (apiKeyData.value === undefined) {
                 response.send(event, context, response.FAILED);
             }
@@ -60,7 +67,7 @@ function callback(event, context) {
                     response.send(event, context, response.SUCCESS, {iotCoreEndpointAddress: iotEndpointAddress});
                 })
                 .catch((err) => {
-                    console.error('Error:', err);
+                    console.error("Error:", err);
                     response.send(event, context, response.FAILED);
                 });
         })

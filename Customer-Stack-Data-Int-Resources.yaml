@@ -1,0 +1,51 @@
+Parameters:
+  #=======================================================
+  #
+  #                   CloudFormation Parameters
+  #
+  #=======================================================
+  1nceAWSId:
+    Type: String
+    Default: ''
+    Description: 1NCE AWS Account Id
+
+Resources:  
+  #=======================================================
+  #
+  #             1nce cross-account IAM Role
+  #
+  #=======================================================
+  1nceCrossAccountIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref 1nceAWSId
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: Cross-Account-Role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'iot:Publish'
+                Resource: '*'
+
+Outputs:
+  #=======================================================
+  #
+  #                 CloudFormation Outputs
+  #
+  #=======================================================
+  1nceCrossAccountIamRoleArn:
+    Description: ARN of the cross-account IAM role used by 1nce to gain access to specific services
+    Value: !GetAtt
+      - 1nceCrossAccountIamRole
+      - Arn
+      

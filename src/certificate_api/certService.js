@@ -1,4 +1,3 @@
-const httpsHelper = require("../common/httpsHelper");
 const AWS = require("aws-sdk/");
 
 AWS.config.region = process.env.AWS_REGION;
@@ -38,14 +37,6 @@ async function getCertificateFromBucket(req) {
     return res;
 }
 
-async function getCertificateFromApi(sim) {
-    if (!sim || !sim.certificateId) {
-        return null;
-    }
-    return await httpsHelper.httpsAWSGet("devices/certificates/key", sim.certificateId);
-}
-
 module.exports = {
-    getCertificateFromBucket,
-    getCertificateFromApi
+    getCertificateFromBucket
 };

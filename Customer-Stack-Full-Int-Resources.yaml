@@ -8,10 +8,6 @@ Parameters:
     Type: String
     Default: ''
     Description: Unique identifier of the resources in this stack
-  IdentifierToken:
-    Type: String
-    Default: ''
-    Description: Unique identifier used for performing the 1nce Provision Callback.
   Codebase:
     Type: String
     Default: customer_stack.zip
@@ -307,6 +303,42 @@ Resources:
                 Resource: '*'
   #=======================================================
   #
+  #             1nce cross-account IAM Role
+  #
+  #=======================================================
+  1nceCrossAccountIamRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS:
+                - !Ref 1nceAWSId
+            Action: 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: Cross-Account-Role
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'sqs:SendMessage'
+                Resource: 
+                  - !GetAtt
+                    - CreateQueueSQS
+                    - Arn
+                  - !GetAtt
+                    - DeleteQueueSQS
+                    - Arn
+              - Effect: Allow
+                Action:
+                  - 'iot:Publish'
+                Resource: '*'
+  #=======================================================
+  #
   #                     SQS Permissions
   #
   #=======================================================
@@ -452,7 +484,6 @@ Resources:
         Mode: Active
     DependsOn:
       - ProvisionThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   RemoveThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -479,7 +510,6 @@ Resources:
         Mode: Active
     DependsOn:
       - RemoveThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -508,7 +538,6 @@ Resources:
         Mode: Active
     DependsOn:
       - AttachCertToThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   CreateThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -532,7 +561,6 @@ Resources:
         Mode: Active
     DependsOn:
       - CreateThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   CreateKeysAndCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -559,7 +587,6 @@ Resources:
           S3_BUCKET: !Ref CertBucketS3
     DependsOn:
       - CreateKeysAndCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   AttachPolicyToCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -586,7 +613,6 @@ Resources:
           THING_POLICY_NAME: !Ref ThingPolicy
     DependsOn:
       - AttachPolicyToCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   UpdateThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -610,7 +636,6 @@ Resources:
         Mode: Active
     DependsOn:
       - UpdateThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -642,7 +667,6 @@ Resources:
           S3_BUCKET: !Ref CertBucketS3
     DependsOn:
       - DeleteCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DescribeThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -666,7 +690,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DescribeThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DisableCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -690,7 +713,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DisableCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DeleteCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -714,7 +736,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DeleteCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DeleteThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -738,7 +759,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DeleteThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DetachPolicyFromCertLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -766,7 +786,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DetachPolicyFromCertLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   DetachCertFromThingLambdaFunction:
     Type: 'AWS::Lambda::Function'
@@ -791,7 +810,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DetachCertFromThingLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -860,7 +878,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DownloadCodeLogGroup
-      - LambdaExecutionIamRole
   CodeDownloadService:
     Type: 'AWS::CloudFormation::CustomResource'
     Version: '1.0'
@@ -926,7 +943,6 @@ Resources:
         Mode: Active
     DependsOn:
       - CleanUpCertificatesLogGroup
-      - LambdaExecutionIamRole
   CleanUpCertificatesService:
     Type: 'AWS::CloudFormation::CustomResource'
     Version: '1.0'
@@ -1561,7 +1577,6 @@ Resources:
         Mode: Active
     DependsOn:
       - GetCertificateFromDeviceLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -1595,7 +1610,6 @@ Resources:
         Mode: Active
     DependsOn:
       - GetIotCoreEndpointLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -1628,7 +1642,6 @@ Resources:
         Mode: Active
     DependsOn:
       - BridgeMqttToIoTCoreLogGroup
-      - LambdaExecutionIamRole
       - CodeDownloadService
   #=======================================================
   #
@@ -1776,7 +1789,7 @@ Resources:
     Properties:
       Name: !Sub '${StackName}-core-bss-support-api-key'
       Description: CloudFormation API Key V1
-      Enabled: 'true'
+      Enabled: true
       StageKeys:
         - RestApiId: !Ref NceSupportApiGatewayRestApi
           StageName: !Ref StackName
@@ -1806,6 +1819,7 @@ Resources:
   ThingPolicy:
     Type: 'AWS::IoT::Policy'
     DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
     Properties:
       PolicyName: !Join
         - '-'
@@ -1920,5 +1934,8 @@ Outputs:
         - .amazonaws.com/
         - !Ref StackName
         - /mqtt
-
-
+  1nceCrossAccountIamRoleArn:
+    Description: ARN of the cross-account IAM role used by 1nce to gain access to specific services
+    Value: !GetAtt
+      - 1nceCrossAccountIamRole
+      - Arn

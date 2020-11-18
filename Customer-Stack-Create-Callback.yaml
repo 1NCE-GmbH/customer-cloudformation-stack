@@ -39,30 +39,52 @@ Parameters:
     Description: Parameter to override the Callback URL
   ApiKeyId:
     Type: String
+    Default: ''
     Description: API key ID
   CertificatesUrl:
     Type: String
+    Default: ''
     Description: Certificates URL
   MqttBridgeUrl:
     Type: String
+    Default: ''
     Description: Mqtt Bridge URL
   CreateQueueSQSArn:
     Type: String
+    Default: ''
     Description: Create SQS ARN
   CreateQueueSQSUrl:
     Type: String
+    Default: ''
     Description: Create SQS URL
+  1nceCrossAccountIamRoleArn:
+    Type: String
+    Default: ''
+    Description: ARN of the cross-account IAM role used by 1nce to gain access to specific services
+  IntegrationType:
+    Type: String
+    AllowedValues:
+      - FULL_INTEGRATION
+      - DATA_INTEGRATION
+    Description: >-
+      The integration type will determine if the customer uses a FULL_INTEGRATION solution
+      including bridging and direct mqtt connectivity using things, certificates and policies. 
+      Or if the customer just has a DATA_INTEGRATION and thus does only makes use of the bridging functionality.
   DeleteQueueSQSArn:
     Type: String
+    Default: ''
     Description: Delete SQS ARN
   DeleteQueueSQSUrl:
     Type: String
+    Default: ''
     Description: Delete SQS URL
   LambdaExecutionIamRoleArn:
     Type: String
+    Default: ''
     Description: Lambda Execution IAM Role ARN
   StateMachineExecutionIamRoleArn:
     Type: String
+    Default: ''
     Description: State Machine Execution IAM Role ARN
 Resources:
   #=======================================================
@@ -245,7 +267,6 @@ Resources:
         Mode: Active
     DependsOn:
       - CreateCallbackDownloadCodeLogGroup
-      - CreateCallbackLambdaExecutionIamRole
   CreateCallBackLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -268,7 +289,6 @@ Resources:
         Mode: Active
     DependsOn:
       - CreateCallbackLambdaLogGroup
-      - CreateCallbackLambdaExecutionIamRole
       - CreateCallbackCodeDownloadService
   #=======================================================
   #
@@ -303,6 +323,7 @@ Resources:
         Region: !Ref 'AWS::Region'
         LambdaExecutionIamRole: !Ref LambdaExecutionIamRoleArn
         StateMachineExecutionIamRole: !Ref StateMachineExecutionIamRoleArn
+        CrossAccountIamRoleArn: !Ref 1nceCrossAccountIamRoleArn
       Resources:
         ApiKeyId: !Ref ApiKeyId
         Provisioning:
@@ -314,5 +335,7 @@ Resources:
         Links:
           Certificates: !Ref CertificatesUrl
           Mqtt: !Ref MqttBridgeUrl
+      1nce:
+        IntegrationType: !Ref IntegrationType
       StackName: !Ref StackName
       CloudFormationVersion: !Ref CodebaseVersion

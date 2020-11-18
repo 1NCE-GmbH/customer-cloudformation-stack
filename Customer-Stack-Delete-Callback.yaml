@@ -215,7 +215,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DeleteCallbackDownloadCodeLogGroup
-      - DeleteCallbackLambdaExecutionIamRole
   DeleteCallBackLambdaFunction:
     Type: 'AWS::Lambda::Function'
     Properties:
@@ -238,7 +237,6 @@ Resources:
         Mode: Active
     DependsOn:
       - DeleteCallbackLambdaLogGroup
-      - DeleteCallbackLambdaExecutionIamRole
       - DeleteCallbackCodeDownloadService
   #=======================================================
   #

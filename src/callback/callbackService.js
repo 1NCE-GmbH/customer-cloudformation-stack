@@ -6,7 +6,7 @@ const CALLBACK_MESSAGE_TYPES = {
     CUSTOMER_DEPROVISIONED: "customer-deprovisioned"
 };
 const CALLBACK_MESSAGE_BASE = {
-    version: "V0.1",
+    version: "V1.0",
     message_source: "cfn"
 };
 
@@ -51,7 +51,8 @@ function createCreateCallBackMessage(event) {
                     account_id: resourceProperties.AWS.AccountId,
                     region: resourceProperties.AWS.Region,
                     lambda_iam_role: resourceProperties.AWS.LambdaExecutionIamRole,
-                    state_machine_iam_role: resourceProperties.AWS.StateMachineExecutionIamRole
+                    state_machine_iam_role: resourceProperties.AWS.StateMachineExecutionIamRole,
+                    cross_account_iam_role: resourceProperties.AWS.CrossAccountIamRoleArn
                 },
                 cloud_formation: {
                     version: resourceProperties.CloudFormationVersion,
@@ -70,6 +71,9 @@ function createCreateCallBackMessage(event) {
                         certificates: resources.Links.Certificates,
                         mqtt_endpoint: resources.Links.Mqtt
                     }
+                },
+                "1nce": {
+                    integration_type: resourceProperties["1nce"].IntegrationType
                 }
             }
         }

@@ -4,44 +4,6 @@ const https = require("https");
 let url = require("url");
 
 /**
- * Make a GET request to an API (endpoint response has to be JSON)
- * @param apiPath String with the path leading to the requested endpoint
- * @param pathParameter String containing pathparameter value (leave string empty if none)
- * @returns {Promise<[]>} String of response API call
- */
-async function httpsAWSGet(apiPath, pathParameter) {
-    return new Promise((resolve, reject) => {
-        https
-            .get(`https://${process.env.API_GATEWAY_ID}.execute-api.${process.env.AWS_REGION}.amazonaws.com/${process.env.API_STAGE}/${apiPath}/${pathParameter}`,
-                resp => {
-                    let output = "";
-
-                    resp.on("data", chunk => {
-                        output += chunk;
-                    });
-                    resp.on("end", () => {
-                        try {
-                            let obj = JSON.parse(output);
-                            resolve(obj);
-                        } catch (err) {
-                            console.error("rest::end", err);
-                            reject(err);
-                        }
-                    });
-
-                    if (resp.statusCode >= 400) {
-                        console.warn(output + resp.statusCode);
-                        reject("Received " + resp.statusCode);
-                    }
-                })
-            .on("error", err => {
-                console.error("rest::request", err);
-                reject(err);
-            });
-    });
-}
-
-/**
  * Make a Post request to an endpoint
  *
  * @param post_url String with the path to the endpoint
@@ -93,6 +55,5 @@ function httpsPost(post_url, data) {
 }
 
 module.exports = {
-    httpsAWSGet,
     httpsPost
 };

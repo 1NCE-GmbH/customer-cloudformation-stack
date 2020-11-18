@@ -2,10 +2,7 @@
 const AWSXRay = require("aws-xray-sdk-core");
 
 const CLIENT_VERSIONS = {
-    dynamodb: '2012-08-10',
     s3: '2006-03-01',
-    sqs: '2012-11-05',
-    sns: '2012-11-05',
     stepfunctions: '2016-11-23',
     iot: '2015-05-28',
     apiGateway: '2015-07-09'
